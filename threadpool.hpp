@@ -12,14 +12,14 @@
 #include <queue> // std::queue
 #include <exception> // std::exception
 
-namespace asset
+namespace gutility
 {
 	// Thread pool
 	class threadpool;
 }
 
 // Thread pool
-class asset::threadpool
+class gutility::threadpool
 {
 private:
 
@@ -64,11 +64,11 @@ public:
 
 	// Return the number of threads in the thread pool.
 	// Return value: The number of threads in the thread pool.
-	size_type size_of_threads(void) const noexcept;
+	size_type count_of_threads(void) const noexcept;
 
 	// Return the number of tasks in the thread pool.
 	// Return value: The number of tasks in the thread pool.
-	size_type size_of_tasks(void) noexcept;
+	size_type count_of_tasks(void) noexcept;
 
 private:
 
@@ -104,7 +104,7 @@ private:
 
 // Constructor.
 // Parameter: size Size of threads.
-inline asset::threadpool::threadpool(size_type size)
+inline gutility::threadpool::threadpool(size_type size)
 	: m_stop_committing(false)
 	, m_close(false)
 {
@@ -120,7 +120,7 @@ inline asset::threadpool::threadpool(size_type size)
 
 // Destructor.
 // The thread pool destroyed after all tasks finishing.
-inline asset::threadpool::~threadpool(void)
+inline gutility::threadpool::~threadpool(void)
 {
 	// stop all scheduling
 	m_close = true;
@@ -136,18 +136,18 @@ inline asset::threadpool::~threadpool(void)
 }
 
 // Stop committing.
-inline void asset::threadpool::stop_committing(void)
+inline void gutility::threadpool::stop_committing(void)
 {
 	m_stop_committing = true;
 }
 
-inline void asset::threadpool::restart_committing(void)
+inline void gutility::threadpool::restart_committing(void)
 {
 	m_stop_committing = false;
 }
 
 // Clear all rest tasks.
-inline void asset::threadpool::clear_waiting_tasks(void)
+inline void gutility::threadpool::clear_waiting_tasks(void)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	while (!m_tasks.empty())
@@ -158,14 +158,14 @@ inline void asset::threadpool::clear_waiting_tasks(void)
 
 // Return the number of threads in the thread pool.
 // Return value: The number of threads in the thread pool.
-inline asset::threadpool::size_type asset::threadpool::size_of_threads(void) const noexcept
+inline gutility::threadpool::size_type gutility::threadpool::count_of_threads(void) const noexcept
 {
 	return m_threads.size();
 }
 
 // Return the number of tasks in the thread pool.
 // Return value: The number of tasks in the thread pool.
-inline asset::threadpool::size_type asset::threadpool::size_of_tasks(void) noexcept
+inline gutility::threadpool::size_type gutility::threadpool::count_of_tasks(void) noexcept
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_tasks.size();
@@ -176,7 +176,7 @@ inline asset::threadpool::size_type asset::threadpool::size_of_tasks(void) noexc
 // Parameter: args Parameters of func.
 // Return value: A future.
 template<typename Func, typename ...Args>
-inline auto asset::threadpool::enqueue(Func && func, Args && ...args) -> std::future<decltype(func(args...))>
+inline auto gutility::threadpool::enqueue(Func && func, Args && ...args) -> std::future<decltype(func(args...))>
 {
 	// if banning committing, throw a exception
 	if (m_stop_committing)
@@ -209,7 +209,7 @@ inline auto asset::threadpool::enqueue(Func && func, Args && ...args) -> std::fu
 // Get a task which to be executed.
 // The function is waiting while no task.
 // Return value: A task.
-inline asset::threadpool::task_type asset::threadpool::get_one_task(void)
+inline gutility::threadpool::task_type gutility::threadpool::get_one_task(void)
 {
 	// lock
 	std::unique_lock<std::mutex> lock(m_mutex);
@@ -235,7 +235,7 @@ inline asset::threadpool::task_type asset::threadpool::get_one_task(void)
 }
 
 // Schedule a task.
-inline void asset::threadpool::schedule(void)
+inline void gutility::threadpool::schedule(void)
 {
 	// loop
 	for (;;)
