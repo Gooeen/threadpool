@@ -11,14 +11,96 @@
 #include <vector> // std::vector
 #include <queue> // std::queue
 #include <exception> // std::exception
+#include <list> // std::list
 
 namespace gutility
 {
-	// Thread pool
+	// Thread pool.
 	class threadpool;
+
+	// Divide a sequence into multiple segments.
+	// Parameter: first Forward iterators to the initial position
+	//            in a sequence of the elements.
+	// Parameter: last Forward iterators to the final position
+	//            in a sequence of the elements. The element pointed
+	//            by first, but not the element pointed by last.
+	//            This must be reachable from first.
+	// Parameter: n Number of segments.
+	// Return value: Multiple segments include iterators to the
+	//               initial and final positions.
+	template <typename ForwardIterator>
+	std::vector<std::pair<ForwardIterator, ForwardIterator>> divide(ForwardIterator first, ForwardIterator last, std::size_t n);
+
+	// Divide a sequence into multiple segments.
+	// Parameter: first Forward iterators to the initial position
+	//            in a sequence of at least n elements.
+	// Parameter: size Numbers of elements.
+	// Parameter: n Number of segments.
+	// Return value: Multiple segments include iterators to the
+	//               initial and final positions.
+	template <typename ForwardIterator>
+	std::vector<std::pair<ForwardIterator, ForwardIterator>> divide_n(ForwardIterator first, std::size_t size, std::size_t n);
 }
 
-// Thread pool
+// Divide a sequence into multiple segments.
+// Parameter: first Forward iterators to the initial position
+//            in a sequence of the elements.
+// Parameter: last Forward iterators to the final position
+//            in a sequence of the elements. The element pointed
+//            by first, but not the element pointed by last.
+//            This must be reachable from first.
+// Parameter: n Number of segments.
+// Return value: Multiple segments include iterators to the
+//               initial and final positions.
+template<typename ForwardIterator>
+std::vector<std::pair<ForwardIterator, ForwardIterator>> gutility::divide(ForwardIterator first, ForwardIterator last, std::size_t n)
+{
+	return divide_n(first, std::distance(first, last), n);
+}
+
+// Divide a sequence into multiple segments.
+// Parameter: first Forward iterators to the initial position
+//            in a sequence of at least n elements.
+// Parameter: size Numbers of elements.
+// Parameter: n Number of segments.
+// Return value: Multiple segments include iterators to the
+//               initial and final positions.
+template<typename ForwardIterator>
+std::vector<std::pair<ForwardIterator, ForwardIterator>> gutility::divide_n(ForwardIterator first, std::size_t size, std::size_t n)
+{
+	auto average = size / n;
+	auto remainder = size % n;
+
+	std::vector<std::pair<ForwardIterator, ForwardIterator>> pointers;
+	pointers.reserve(n);
+	
+	for (std::size_t i = 0; i < remainder; ++i)
+	{
+		ForwardIterator last = first;
+		std::advance(last, average + 1);
+
+		pointers.emplace_back(first, last);
+		first = last;
+	}
+
+	if (average == 0)
+	{
+		return pointers;
+	}
+
+	for (std::size_t i = remainder; i < n; ++i)
+	{
+		ForwardIterator last = first;
+		std::advance(last, average);
+
+		pointers.emplace_back(first, last);
+		first = last;
+	}
+
+	return pointers;
+}
+
+// Thread pool.
 class gutility::threadpool
 {
 private:
@@ -69,6 +151,44 @@ public:
 	// Return the number of tasks in the thread pool.
 	// Return value: The number of tasks in the thread pool.
 	size_type count_of_tasks(void) noexcept;
+
+	// Divide a sequence into multiple average segments and enqueue them.
+	// Return after all tasks finishing.
+	// Parameter: first Forward iterators to the initial position
+	//            in a sequence of the elements.
+	// Parameter: last Forward iterators to the final position
+	//            in a sequence of the elements. The element pointed
+	//            by first, but not the element pointed by last.
+	//            This must be reachable from first.
+	// Parameter: func The task function that accepts two iterators to the
+	//            initial and final positions as arguments.
+	//            The function shall not modify any of its arguments.
+	//            This can either be a function pointer or a function object.
+	template <typename InputIterator, typename TaskFunc>
+	void parallel(InputIterator first, InputIterator last, TaskFunc &&func);
+
+	// Divide a sequence into multiple segments and enqueue them.
+	// Return after all tasks finishing.
+	// Parameter: first Forward iterators to the initial position
+	//            in a sequence of the elements.
+	// Parameter: last Forward iterators to the final position
+	//            in a sequence of the elements. The element pointed
+	//            by first, but not the element pointed by last.
+	//            This must be reachable from first.
+	// Parameter: func The task function that accepts two iterators to the
+	//            initial and final positions as arguments.
+	//            The function shall not modify any of its arguments.
+	//            This can either be a function pointer or a function object.
+	// Parameter: func The task function that accepts two iterators and an
+	//            unsigned integral. Two iterators are to the initial and
+	//            final positions and an unsigned integral indicates the
+	//            number of segments. It returns a container of a std::pair
+	//            of two iterators to the initial and final positions. The
+	//            container must have a begin() function, an end() function.
+	//            The function shall not modify any of its arguments.
+	//            This can either be a function pointer or a function object.
+	template <typename InputIterator, typename TaskFunc, typename SplitFunc>
+	void parallel(InputIterator first, InputIterator last, TaskFunc &&func, SplitFunc &&split);
 
 private:
 
@@ -204,6 +324,61 @@ inline auto gutility::threadpool::enqueue(Func && func, Args && ...args) -> std:
 
 	// return a future of task
 	return task->get_future();
+}
+
+// Divide a sequence into multiple average segments and enqueue them.
+// Return after all tasks finishing.
+// Parameter: first Forward iterators to the initial position
+//            in a sequence of the elements.
+// Parameter: last Forward iterators to the final position
+//            in a sequence of the elements. The element pointed
+//            by first, but not the element pointed by last.
+//            This must be reachable from first.
+// Parameter: func The task function that accepts two iterators to the
+//            initial and final positions as arguments.
+//            The function shall not modify any of its arguments.
+//            This can either be a function pointer or a function object.
+template<typename InputIterator, typename TaskFunc>
+inline void gutility::threadpool::parallel(InputIterator first, InputIterator last, TaskFunc &&func)
+{
+	this->parallel(first, last, std::forward<TaskFunc>(func), divide<InputIterator>);
+}
+
+// Divide a sequence into multiple segments and enqueue them.
+// Return after all tasks finishing.
+// Parameter: first Forward iterators to the initial position
+//            in a sequence of the elements.
+// Parameter: last Forward iterators to the final position
+//            in a sequence of the elements. The element pointed
+//            by first, but not the element pointed by last.
+//            This must be reachable from first.
+// Parameter: func The task function that accepts two iterators to the
+//            initial and final positions as arguments.
+//            The function shall not modify any of its arguments.
+//            This can either be a function pointer or a function object.
+// Parameter: func The task function that accepts two iterators and an
+//            unsigned integral. Two iterators are to the initial and
+//            final positions and an unsigned integral indicates the
+//            number of segments. It returns a container of a std::pair
+//            of two iterators to the initial and final positions. The
+//            container must have a begin() function, an end() function.
+//            The function shall not modify any of its arguments.
+//            This can either be a function pointer or a function object.
+template<typename InputIterator, typename TaskFunc, typename SplitFunc>
+inline void gutility::threadpool::parallel(InputIterator first, InputIterator last, TaskFunc &&func, SplitFunc &&split)
+{
+	auto splitfunction = split(first, last, this->count_of_threads());
+
+	std::list<std::future<void>> results;
+	for (const auto &group : splitfunction)
+	{
+		results.push_back(this->enqueue(func, group.first, group.second));
+	}
+
+	for (auto &result : results)
+	{
+		result.get();
+	}
 }
 
 // Get a task which to be executed.
